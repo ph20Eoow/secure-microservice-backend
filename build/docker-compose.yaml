@@ -1,0 +1,34 @@
+version: '3'
+services:
+  # Microservice
+  auth-svc:
+    build:
+      context: ../user-svc/
+      dockerfile: ../user-svc/dockerfile
+    restart: always
+    ports:
+    - "8080:80"
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      DSN: "host=postgres port=5432 user=postgres password=password sslmode=disable timezone=UTC connect_timeout=5"
+
+  # Database
+  postgres:
+    image: 'postgres:14.2'
+    ports:
+      - 5432:5432
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      - ./sql/init_setup.sql:/docker-entrypoint-initdb.d/init.sql
+volumes:
+  postgres_data:
+    external: true
