@@ -1,6 +1,8 @@
 # Should-be-secure-microservice-backend
 This is a simple microservice application as served for exploring security topics around application/microservice/cloud/CICD.
 
+The application will be communicate through JSON, not gRPC (maybe in future version), and integrated with Postgres DB.
+
 # Todo
 - [ ] App Feature: Adding user microservice
   - [x] CRUD user profile

@@ -23,7 +23,10 @@ func (app *Config) routes() http.Handler {
 
 	r.Use(middleware.Heartbeat("/ping"))
 
-	r.Post("/basic-auth", app.authBasic)
-	r.Put("/user", app.createUser)
+	r.Route("/user", func(r chi.Router) {
+		r.With(app.isAuthByBasicAuth).Get("/{id}", app.getUserProfile)
+		r.Put("/", app.createUser)
+		r.With(app.isAuthByBasicAuth).Post("/password", app.updatePassword)
+	})
 	return r
 }

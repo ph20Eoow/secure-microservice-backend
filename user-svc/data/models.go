@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"regexp"
 	"time"
@@ -32,6 +33,14 @@ func New(dbPool *sql.DB) Models {
 	}
 }
 
+func getPasswordHash(password string) (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedPassword), nil
+}
+
 func (u *User) GetUserByEmail(email string) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
@@ -53,10 +62,6 @@ func (u *User) GetUserByEmail(email string) (*User, error) {
 	return &user, nil
 }
 
-func (u *User) DebugBackdoor(sql string) error {
-	return nil
-}
-
 // Insert user into table users
 func (u *User) InsertUser(email, password string) (int, error) {
 	log.Printf("Called func InsertUser, arg$1:%s, arg$2:%s", email, password)
@@ -64,13 +69,13 @@ func (u *User) InsertUser(email, password string) (int, error) {
 	defer cancel()
 
 	// hashing the password, never store your password in plain text
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	hashedPassword, err := getPasswordHash(password)
+	log.Println(string(hashedPassword))
 	if err != nil {
 		return 0, err
 	}
 	var id int
 	sql := `insert into users (email, password) values ($1, $2) returning id`
-	log.Printf("Called func InsertUser, sql:%s", sql)
 	err = db.QueryRowContext(ctx, sql, email, hashedPassword).Scan(&id)
 
 	if err != nil {
@@ -79,6 +84,56 @@ func (u *User) InsertUser(email, password string) (int, error) {
 	return id, nil
 }
 
+func (u *User) GetUserById(id string) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	sql := `select id, email from users where id = $1`
+
+	row := db.QueryRowContext(ctx, sql, id)
+	var user User
+	err := row.Scan(
+		&user.ID,
+		&user.Email,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (u *User) UpdatePassword(oldPassword, password string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	// validate users oldPassword
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(oldPassword))
+	if err != nil {
+		return false, errors.New("Password Mismatch")
+	}
+
+	// update password
+	hashedPassword, err := getPasswordHash(password)
+	if err != nil {
+		return false, errors.New("Failed in update password, issue during the state of processing the password hash")
+	}
+	sql := `update users set password = $1 where id = $2`
+	row := db.QueryRowContext(ctx, sql, hashedPassword, u.ID)
+	err = row.Err()
+	if err != nil {
+		return false, errors.New("Failed in updating password")
+	}
+	return true, nil
+}
+
+func (u *User) PasswordMatched(password string) (bool, error) {
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	if err != nil {
+		return false, errors.New("Password Mismatch")
+	} else {
+		return true, nil
+	}
+}
+
+// validate email format
 func (u *User) ValidateEmail(email string) (bool, error) {
 	pattern := `^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$`
 	match, err := regexp.MatchString(pattern, email)
@@ -88,6 +143,7 @@ func (u *User) ValidateEmail(email string) (bool, error) {
 	return match, nil
 }
 
+// validate password complexity
 func (u *User) ValidatePassword(password string) (bool, error) {
 	type Check struct {
 		min bool

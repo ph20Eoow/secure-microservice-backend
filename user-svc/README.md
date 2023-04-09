@@ -1,20 +1,8 @@
 # Authentication Service
 This is a microservice that handle all incoming http request and communicate with other microservice on behalf.
 
-# Basic Authentication
-Path: /basic-auth
-
-Method: Post
-
-Params: 
-- email
-- password
-
-# Create User
-Path: /user
-
-Method: PUT
-
-Params:
-- email: string
-- password: string
+| method | path           | requireAuth | description          |   |
+|--------|----------------|-------------|----------------------|---|
+| get    | /user/{id}     | true        | update user          |   |
+| put    | /user/         | false       | create user          |   |
+| post   | /user/password | treu        | update user password |   |
