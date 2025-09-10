@@ -1,4 +1,4 @@
-# Should-be-secure-microservice-backend
+# secure-microservice-backend
 This is a simple microservice application as served for exploring security topics around application/microservice/cloud/CICD.
 
 # Todo
